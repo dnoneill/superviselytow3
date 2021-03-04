@@ -59,15 +59,14 @@ def tagstow3(tags, metadata):
 	for tag in tags:
 		value = tag['value']
 		if value:
-			if type(tag['value']) == int:
-				value = "{} {}".format(str(tag['value']), tag['name'].replace("*", "").replace("?", "").replace("Number of", "").strip())
+			tagdataset= {'group': tag['name'].replace('*', '').replace('?', ''), 'value': str(tag['value'])}
 			tagdict = {
-				'value': value,
+				'value': tagdataset,
 				'creator': tag['labelerLogin'],
 				'created': tag['createdAt'],
 				'modified': tag['updatedAt'],
 				'purpose':'tagging',
-				'type': 'TextualBody'
+				'type': 'Dataset'
 			}
 			color = metadata[tag['id']]
 			classes.append(".%s {\ncolor: %s\n}\n"%(tagtoclass(value), color))
