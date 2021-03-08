@@ -1,4 +1,4 @@
-import glob, re
+import glob, re, os
 def tow3(content, metadata, contentmeta):
 	annotationbase = {
     "type": "Annotation",
@@ -22,7 +22,7 @@ def tow3(content, metadata, contentmeta):
 	label = contentmeta[content['classId']]['title']
 	bodytags = tagstow3(content['tags'], metadata)
 	newanno['label'] = label
-	newanno['target']['id'] = glob.glob('*.jpg')[0]
+	newanno['target']['id'] = glob.glob(os.path.join(inputpath, '*.jpg'))[0]
 	newanno['body'] = bodytags['tags']
 	newanno['target']["styleClass"] = "tag"
 	newanno['stylesheet']['value'] = "\n".join(bodytags['classes'])
@@ -59,22 +59,29 @@ def tagstow3(tags, metadata):
 	classes = []
 	for tag in tags:
 		value = str(tag['value'])
-		if value:
-			group = tag['name'].replace('*', '').replace('?', '').strip()
-			tagdataset= {'group': group, 'value': value}
+		group = str(tag['name'])
+		if value != 'None' or group != 'None':
+			group = group.replace('*', '').replace('?', '').strip()
+			if value != 'None' and group != 'None':
+				tagdataset= {'group': group, 'value': value}
+				tagtype = 'Dataset'
+			else:
+				tagtype = 'TextualBody'
+				tagdataset = value if value != 'None' else group
 			tagdict = {
 				'value': tagdataset,
 				'creator': tag['labelerLogin'],
 				'created': tag['createdAt'],
 				'modified': tag['updatedAt'],
 				'purpose':'tagging',
-				'type': 'Dataset'
+				'type': tagtype
 			}
 			try:
-				color = metadata[tag['id']]
+				tagidfield = tag['tagId'] if 'tagId' in tag.keys() else tag['id']
+				color = metadata[tagidfield]
 				classes.append(".tag .%s {\ncolor: %s\n}\n"%(tagtoclass(group), color))
 			except:
-				print()
+				print('no color')
 			tagslist.append(tagdict)
 	return {'classes': classes, 'tags': tagslist}
 
@@ -83,9 +90,13 @@ def tagtoclass(group):
 	return "".join(re.findall(regex, ".{}".format(group.lower())))
 
 import json
-with open("meta.json", "r") as read_file:
+inputpath = input("Enterfilepath to contents: ")
+meta = glob.glob(os.path.join(inputpath, "meta.json"))
+with open(meta[0], "r") as read_file:
     metadata = json.load(read_file)
-with open("melgaco2.jpg.json", "r") as read_file:
+file = glob.glob(os.path.join(inputpath, "*.jpg.json"))
+
+with open(file[0], "r") as read_file:
     contents = json.load(read_file)
 parsemeta = {}
 contentmeta = {}
@@ -103,8 +114,7 @@ for content in contents['objects']:
 	
 	if annotation != None:
 		resources.append(annotation)
-
-with open('w3annotation.json', 'w') as output:
+with open('{}-w3annotation.json'.format(os.path.basename(inputpath)), 'w') as output:
 	listanno = {"@context": "http://www.w3.org/ns/anno.jsonld", "type": "AnnotationPage", "items": list(resources)}
 	output.write(json.dumps(listanno))
 
