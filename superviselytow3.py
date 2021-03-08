@@ -24,11 +24,12 @@ def tow3(content, metadata, contentmeta):
 	newanno['label'] = label
 	newanno['target']['id'] = glob.glob('*.jpg')[0]
 	newanno['body'] = bodytags['tags']
+	newanno['target']["styleClass"] = "tag"
 	newanno['stylesheet']['value'] = "\n".join(bodytags['classes'])
 	if content['geometryType'] == 'polygon':
 		polygon = '<svg><polygon points=\"'
 		for point in content['points']['exterior']:
-			polygon += "{}, {} ".format(point[0], point[1])
+			polygon += "{},{} ".format(point[0], point[1])
 		polygon = polygon.strip() + '\"></polygon></svg>'
 		newanno['target']['selector']['type'] = "SvgSelector"
 		newanno['target']['selector']['conformsTo'] = "http://www.w3.org/TR/SVG/"
@@ -57,9 +58,10 @@ def tagstow3(tags, metadata):
 	tagslist = []
 	classes = []
 	for tag in tags:
-		value = tag['value']
+		value = str(tag['value'])
 		if value:
-			tagdataset= {'group': tag['name'].replace('*', '').replace('?', ''), 'value': str(tag['value'])}
+			group = tag['name'].replace('*', '').replace('?', '').strip()
+			tagdataset= {'group': group, 'value': value}
 			tagdict = {
 				'value': tagdataset,
 				'creator': tag['labelerLogin'],
@@ -68,14 +70,17 @@ def tagstow3(tags, metadata):
 				'purpose':'tagging',
 				'type': 'Dataset'
 			}
-			color = metadata[tag['id']]
-			classes.append(".%s {\ncolor: %s\n}\n"%(tagtoclass(value), color))
+			try:
+				color = metadata[tag['id']]
+				classes.append(".tag .%s {\ncolor: %s\n}\n"%(tagtoclass(group), color))
+			except:
+				print()
 			tagslist.append(tagdict)
 	return {'classes': classes, 'tags': tagslist}
 
-def tagtoclass(tag):
+def tagtoclass(group):
 	regex = r"-?[_a-zA-Z]+[_a-zA-Z0-9-]*"
-	return "".join(re.findall(regex, ".tags-{}".format(str(tag).lower())))
+	return "".join(re.findall(regex, ".{}".format(group.lower())))
 
 import json
 with open("meta.json", "r") as read_file:
@@ -100,7 +105,7 @@ for content in contents['objects']:
 		resources.append(annotation)
 
 with open('w3annotation.json', 'w') as output:
-	listanno = {"resources": list(resources)}
+	listanno = {"@context": "http://www.w3.org/ns/anno.jsonld", "type": "AnnotationPage", "items": list(resources)}
 	output.write(json.dumps(listanno))
 
 
