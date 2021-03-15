@@ -1,7 +1,10 @@
 import glob, re, os
+from itertools import groupby
+
 def tow3(content, metadata, contentmeta):
 	annotationbase = {
     "type": "Annotation",
+    "id": "",
     "@context": "http://www.w3.org/ns/anno.jsonld",
     "label": "",
     "body": [],
@@ -10,10 +13,10 @@ def tow3(content, metadata, contentmeta):
     "value": ""
   	},
     "target": {
-      "id": "",
-      "selector": {}
-
-    }
+          "id": "",
+          "selector": {}
+    
+        }
  	}
 	newanno = dict(annotationbase)	
 	creator = content['labelerLogin']
@@ -22,6 +25,7 @@ def tow3(content, metadata, contentmeta):
 	label = contentmeta[content['classId']]['title']
 	bodytags = tagstow3(content['tags'], metadata)
 	newanno['label'] = label
+	newanno['id'] =  str(content['instance']) if 'instance' in content.keys() else str(content['id'])
 	newanno['target']['id'] = glob.glob(os.path.join(inputpath, '*.jpg'))[0]
 	newanno['body'] = bodytags['tags']
 	newanno['target']["styleClass"] = "tag"
@@ -111,11 +115,39 @@ for content in contents['objects']:
 		if key not in keys:
 			keys.append(key)
 	annotation = tow3(content, parsemeta, contentmeta)
-	
 	if annotation != None:
 		resources.append(annotation)
+groupedresources = []
+groups = groupby(sorted(resources, key=lambda x:x['id']),key=lambda x:x['id'])
+for k,v in groups:
+	listv = list(v)
+	if (len(listv)) == 1:
+		groupedresources.append(listv[0])
+	else:
+		newanno={
+		    "type": "Annotation",
+		    "id": listv[0]['id'],
+		    "@context": "http://www.w3.org/ns/anno.jsonld",
+		    "label": [],
+		    "body": [],
+		    "stylesheet": {
+		    "type": "CssStylesheet",
+		    "value": ""
+		  	},
+		    "target":[]
+		}
+		for item in listv:
+			if item['label'] not in newanno['label']:
+				newanno['label'].append(item['label'])
+			bodyvalues = list(map(lambda x: str(x['value']), newanno['body']))
+			bodies = list(filter(lambda y: str(y['value']) not in bodyvalues,item['body']))
+			newanno['body'].extend(bodies)
+			newanno['stylesheet']['value'] += item['stylesheet']['value']
+			newanno['target'].append(item['target'])
+		newanno['label'] = "/".join(newanno['label'])
+		groupedresources.append(newanno)
 with open('{}-w3annotation.json'.format(os.path.basename(inputpath)), 'w') as output:
-	listanno = {"@context": "http://www.w3.org/ns/anno.jsonld", "type": "AnnotationPage", "items": list(resources)}
+	listanno = {"@context": "http://www.w3.org/ns/anno.jsonld", "type": "AnnotationPage", "items": list(groupedresources)}
 	output.write(json.dumps(listanno))
 
 
